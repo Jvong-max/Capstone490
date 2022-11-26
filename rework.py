@@ -3,6 +3,12 @@ import dlib
 import time
 import mediapipe as mp
 import sys
+import numpy as np
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+from matplotlib import animation
+import plot
+from tkinter import filedialog as fd
 
 # Drawing outline of poses, tracking and detection is halved.
 mpPose = mp.solutions.pose
@@ -13,7 +19,9 @@ pose = mpPose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
 personCascade = cv2.CascadeClassifier('haarcascade_fullbody.xml')
 
 # Select what video
-video = cv2.VideoCapture("videos/walk.mp4")
+#filename = fd.askopenfilename()
+
+#video = cv2.VideoCapture(filename)
 
 # create region of interest?
 
@@ -45,6 +53,10 @@ def main():
     location1 = {}
     location2 = {}
 
+    # Select what video
+    filename = fd.askopenfilename()
+    video = cv2.VideoCapture(filename)
+
     # User Input, add gui later?
     userInputDistance = input("Enter distance(Meters) traveled: ")
     userInputTime = input("Time Taken(seconds): ")
@@ -55,6 +67,11 @@ def main():
 
     # Save video to capstone directory in .avi format and motion jpeg
     out = cv2.VideoWriter('result-video.avi', cv2.VideoWriter_fourcc('M','J','P','G'), 10, (WIDTH, HEIGHT))
+
+    # variables for plot
+    poselandmarks_list = plot.poselandmarks_list
+    length = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+    data = np.empty((3, len(poselandmarks_list),length))
 
     # While camera or video is playing
     while True:
@@ -82,9 +99,14 @@ def main():
             f.close()
 
         # Attempt to plot
+        landmarks = results.pose_world_landmarks.landmark
+        for i in range(len(mpPose.PoseLandmark)):
+            data[:, i, frameCounter] = (landmarks[i].x, landmarks[i].y, landmarks[i].z)
+        frameCounter = frameCounter + 1
+
         # mpDraw.plot_landmarks(results.pose_world_landmarks,  mpPose.POSE_CONNECTIONS)
 
-        frameCounter = frameCounter + 1
+        # frameCounter = frameCounter + 1
         # personIDtoDelete = []
 
         # Calculate Frames
@@ -184,6 +206,15 @@ def main():
     
     cv2.destroyAllWindows()
     out.release()
+
+    fig = plt.figure()
+    fig.set_size_inches(5, 5, True)
+    ax = fig.add_subplot(projection ='3d')
+
+    anim = plot.time_animate(data, fig, ax)
+    # save
+    writergif = animation.PillowWriter(fps=30)
+    anim.save('wireframe.gif',writer=writergif)
 
 if __name__ == '__main__':
     main()
